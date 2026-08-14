@@ -36,6 +36,27 @@ class WC_Imajiner_Emails {
 			add_filter( 'woocommerce_email_heading_' . $email_id, array( $this, 'filter_heading' ), 20, 3 );
 			add_filter( 'woocommerce_email_additional_content_' . $email_id, array( $this, 'filter_additional' ), 20, 3 );
 		}
+
+		self::maybe_remove_on_hold_payment_url_from_stored_template();
+	}
+
+	/**
+	 * Drop the leftover pay-now line from a previously saved on-hold template.
+	 */
+	protected static function maybe_remove_on_hold_payment_url_from_stored_template() {
+		$stored = get_option( self::OPTION_KEY, array() );
+		if ( ! is_array( $stored ) || empty( $stored['customer_on_hold_order']['body'] ) || ! is_string( $stored['customer_on_hold_order']['body'] ) ) {
+			return;
+		}
+
+		$body    = $stored['customer_on_hold_order']['body'];
+		$updated = preg_replace( '/\n?Bayar sekarang:\s*\{payment_url\}/u', '', $body );
+		if ( ! is_string( $updated ) || $updated === $body ) {
+			return;
+		}
+
+		$stored['customer_on_hold_order']['body'] = trim( $updated );
+		update_option( self::OPTION_KEY, $stored );
 	}
 
 	/**
@@ -115,7 +136,7 @@ class WC_Imajiner_Emails {
 			'customer_on_hold_order'    => array(
 				'subject'     => 'Pesanan #{order_number} menunggu pembayaran',
 				'heading'     => 'Menunggu pembayaran',
-				'body'        => "Halo {customer_first_name},\n\nTerima kasih sudah berbelanja di {$site}. Pesanan #{order_number} sudah kami terima dan menunggu pembayaran.\n\nSilakan selesaikan pembayaran dalam 24 jam agar pesanan tetap diproses. Setelah 24 jam, pesanan akan dibatalkan otomatis.\n\nTotal: {order_total}\nBayar sekarang: {payment_url}",
+				'body'        => "Halo {customer_first_name},\n\nTerima kasih sudah berbelanja di {$site}. Pesanan #{order_number} sudah kami terima dan menunggu pembayaran.\n\nSilakan selesaikan pembayaran dalam 24 jam agar pesanan tetap diproses. Setelah 24 jam, pesanan akan dibatalkan otomatis.\n\nTotal: {order_total}",
 				'additional'  => 'Jika sudah transfer, simpan bukti pembayaran. Hubungi kami jika butuh bantuan.',
 			),
 			'customer_processing_order' => array(

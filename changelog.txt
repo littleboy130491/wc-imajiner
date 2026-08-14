@@ -1,0 +1,10 @@
+== Changelog ==
+
+= 1.1.0 - 2026-08-14 =
+* Add a default AlgolPlus bulk table footer when the rule message is empty.
+* Attach invoice PDFs to customer emails and show a download on My Account orders.
+* Add a Simplify option to hide the WooCommerce mobile app promo in admin new-order emails.
+* Remove the pay-now URL from the default waiting-for-payment email template.
+
+= 1.0.0 =
+* Initial release.

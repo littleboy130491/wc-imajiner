@@ -92,6 +92,12 @@ class WC_Imajiner_Features {
 
 		// Bank transfer only.
 		add_filter( 'woocommerce_available_payment_gateways', array( $this, 'filter_available_gateways' ), 100 );
+
+		// AlgolPlus bulk table: default footer when rule message is empty.
+		add_filter( 'adp_discount_product_table', array( $this, 'filter_adp_product_bulk_table_footer' ), 10, 5 );
+
+		// Hide WooCommerce mobile app promo in admin New Order emails.
+		add_action( 'woocommerce_email', array( $this, 'maybe_remove_admin_email_app_promo' ) );
 	}
 
 	/**
@@ -1102,5 +1108,80 @@ class WC_Imajiner_Features {
 		}
 
 		return $gateways;
+	}
+
+	/**
+	 * Default bulk table footer when the rule "Bulk table message" is empty.
+	 *
+	 * ADP only prints a footer from getPromotionalMessage() when that field is
+	 * already set, and wdp_format_bulk_table_message only runs as a header.
+	 * This uses adp_discount_product_table so the fallback lands in the footer.
+	 *
+	 * @param object $table           ADP table object.
+	 * @param object $context_options Table context options.
+	 * @param mixed  $product         Product.
+	 * @param object $rule            ADP rule.
+	 * @param mixed  $price_processor Price processor.
+	 * @return object
+	 */
+	public function filter_adp_product_bulk_table_footer( $table, $context_options, $product, $rule, $price_processor ) {
+		unset( $product, $price_processor );
+
+		if ( ! is_object( $table ) || ! method_exists( $table, 'setTableFooter' ) ) {
+			return $table;
+		}
+
+		if ( is_object( $context_options ) && empty( $context_options->isShowFooter ) ) {
+			return $table;
+		}
+
+		$handler = ( is_object( $rule ) && method_exists( $rule, 'getProductRangeAdjustmentHandler' ) )
+			? $rule->getProductRangeAdjustmentHandler()
+			: null;
+
+		$message = ( is_object( $handler ) && method_exists( $handler, 'getPromotionalMessage' ) )
+			? trim( (string) $handler->getPromotionalMessage() )
+			: '';
+
+		if ( '' !== $message ) {
+			return $table;
+		}
+
+		$default = apply_filters(
+			'wc_imajiner_adp_default_bulk_table_footer',
+			__( 'Semakin banyak dibeli, semakin hemat.', 'wc-imajiner' ),
+			$rule,
+			$context_options
+		);
+
+		$default = trim( (string) $default );
+		if ( '' === $default ) {
+			return $table;
+		}
+
+		$table->setTableFooter( '<p>' . esc_html( $default ) . '</p>' );
+
+		return $table;
+	}
+
+	/**
+	 * Remove the WooCommerce mobile-app promo from New Order admin emails.
+	 *
+	 * @param WC_Emails $mailer Mailer.
+	 */
+	public function maybe_remove_admin_email_app_promo( $mailer ) {
+		if ( ! WC_Imajiner_Settings::is_enabled( 'hide_admin_email_app_promo' ) ) {
+			return;
+		}
+
+		if ( ! is_object( $mailer ) || empty( $mailer->emails['WC_Email_New_Order'] ) ) {
+			return;
+		}
+
+		remove_action(
+			'woocommerce_email_footer',
+			array( $mailer->emails['WC_Email_New_Order'], 'mobile_messaging' ),
+			9
+		);
 	}
 }

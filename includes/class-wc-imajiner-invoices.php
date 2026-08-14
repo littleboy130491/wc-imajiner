@@ -45,6 +45,9 @@ class WC_Imajiner_Invoices {
 		add_filter( 'wpo_wcpdf_header_logo_id', array( $this, 'filter_header_logo_id' ), 20, 2 );
 		add_action( 'wpo_wcpdf_after_document_label', array( $this, 'render_intro' ), 10, 2 );
 		add_action( 'wpo_wcpdf_after_order_details', array( $this, 'render_notes' ), 10, 2 );
+		add_action( 'init', array( $this, 'maybe_configure_customer_access' ), 20 );
+		add_action( 'woocommerce_order_details_after_order_table', array( $this, 'render_my_account_invoice_download' ), 20 );
+		add_filter( 'wpo_wcpdf_myaccount_button_text', array( $this, 'filter_my_account_button_text' ), 20, 2 );
 	}
 
 	/**
@@ -127,6 +130,116 @@ class WC_Imajiner_Invoices {
 	public function register_template_path( $paths ) {
 		$paths['wc-imajiner'] = WC_IMAJINER_PATH . 'templates/pdf/';
 		return $paths;
+	}
+
+	/**
+	 * Enable invoice PDF on customer emails and My Account when WPO defaults hide it.
+	 *
+	 * WPO "Allow My Account invoice download" defaults to "only when already created".
+	 * Empty "Attach to" means no PDF on emails. This fills those once.
+	 *
+	 * @param bool $force Rewrite even if previously configured.
+	 */
+	public function maybe_configure_customer_access( $force = false ) {
+		if ( ! self::is_plugin_active() ) {
+			return;
+		}
+
+		$option_key = 'wpo_wcpdf_documents_settings_invoice';
+		$settings   = get_option( $option_key, array() );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+
+		$changed = false;
+
+		if ( empty( $settings['enabled'] ) ) {
+			$settings['enabled'] = 1;
+			$changed             = true;
+		}
+
+		$current_buttons = isset( $settings['my_account_buttons'] ) ? (string) $settings['my_account_buttons'] : '';
+		if ( $force || '' === $current_buttons || 'available' === $current_buttons ) {
+			if ( 'always' !== $current_buttons ) {
+				$settings['my_account_buttons'] = 'always';
+				$changed                        = true;
+			}
+		}
+
+		$attach = isset( $settings['attach_to_email_ids'] ) && is_array( $settings['attach_to_email_ids'] )
+			? $settings['attach_to_email_ids']
+			: array();
+
+		if ( $force || empty( array_filter( $attach ) ) ) {
+			foreach ( $this->default_invoice_email_ids() as $email_id ) {
+				$attach[ $email_id ] = '1';
+			}
+			$settings['attach_to_email_ids'] = $attach;
+			$changed                         = true;
+		}
+
+		if ( $changed ) {
+			update_option( $option_key, $settings );
+		}
+	}
+
+	/**
+	 * Customer emails that should include the invoice PDF (BACS + paid).
+	 *
+	 * @return string[]
+	 */
+	protected function default_invoice_email_ids() {
+		return array(
+			'customer_on_hold_order',
+			'customer_processing_order',
+			'customer_completed_order',
+			'customer_invoice',
+		);
+	}
+
+	/**
+	 * Label for the My Account orders-list action.
+	 *
+	 * @param string $text     Button text.
+	 * @param mixed  $document Document.
+	 * @return string
+	 */
+	public function filter_my_account_button_text( $text, $document = null ) {
+		if ( is_object( $document ) && method_exists( $document, 'get_type' ) && 'invoice' !== $document->get_type() ) {
+			return $text;
+		}
+
+		return __( 'Faktur PDF', 'wc-imajiner' );
+	}
+
+	/**
+	 * Download button on My Account → view order.
+	 *
+	 * @param WC_Order $order Order.
+	 */
+	public function render_my_account_invoice_download( $order ) {
+		if ( ! is_account_page() || ! $order instanceof WC_Order ) {
+			return;
+		}
+
+		if ( ! self::is_plugin_active() || ! function_exists( 'wcpdf_get_document' ) || ! function_exists( 'WPO_WCPDF' ) ) {
+			return;
+		}
+
+		$invoice = wcpdf_get_document( 'invoice', $order );
+		if ( ! $invoice || ! method_exists( $invoice, 'is_allowed_in_my_account' ) || ! $invoice->is_allowed_in_my_account( 'always' ) ) {
+			return;
+		}
+
+		$url = WPO_WCPDF()->endpoint->get_document_link( $order, 'invoice', array( 'my-account' => 'true' ) );
+		if ( ! $url ) {
+			return;
+		}
+
+		echo '<p class="wc-imajiner-invoice-download">';
+		echo '<a class="button" href="' . esc_url( $url ) . '">';
+		echo esc_html__( 'Unduh Faktur PDF', 'wc-imajiner' );
+		echo '</a></p>';
 	}
 
 	/**
@@ -587,6 +700,7 @@ class WC_Imajiner_Invoices {
 
 		update_option( self::OPTION_KEY, $clean );
 		$this->maybe_select_template();
+		$this->maybe_configure_customer_access( true );
 
 		wp_safe_redirect( WC_Imajiner_Admin::url( 'invoice', array( 'wc_imajiner_notice' => 'invoice_saved' ) ) );
 		exit;
@@ -743,6 +857,15 @@ class WC_Imajiner_Invoices {
 		?>
 		<p class="wc-imajiner-intro">
 			<?php esc_html_e( 'Ubah teks faktur PDF di sini. Default berbahasa Indonesia, dengan layout sederhana dan mudah dibaca.', 'wc-imajiner' ); ?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'Faktur PDF dilampirkan ke email pelanggan (menunggu pembayaran, diproses, selesai, dan invoice manual), dan bisa diunduh dari Akun Saya → Pesanan.', 'wc-imajiner' ); ?>
+			<?php
+			$wpo_url = admin_url( 'admin.php?page=wpo_wcpdf_options_page&tab=documents&section=invoice' );
+			?>
+			<a href="<?php echo esc_url( $wpo_url ); ?>">
+				<?php esc_html_e( 'Pengaturan lampiran WP Overnight', 'wc-imajiner' ); ?>
+			</a>
 		</p>
 
 		<div class="wc-imajiner-card">

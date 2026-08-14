@@ -39,6 +39,7 @@ class WC_Imajiner_Settings {
 			'disable_marketplace_tab'     => 'yes',
 			'require_login_checkout'      => 'yes',
 			'default_bacs_payment'        => 'yes',
+			'hide_admin_email_app_promo'  => 'yes',
 			'enabled_order_statuses'      => self::default_enabled_order_statuses(),
 		);
 	}
@@ -138,6 +139,10 @@ class WC_Imajiner_Settings {
 			'default_bacs_payment'        => array(
 				'label'       => __( 'Hanya Transfer Bank (BACS)', 'wc-imajiner' ),
 				'description' => __( 'Aktifkan transfer bank sebagai satu-satunya metode pembayaran di toko.', 'wc-imajiner' ),
+			),
+			'hide_admin_email_app_promo'  => array(
+				'label'       => __( 'Sembunyikan promo aplikasi di email admin', 'wc-imajiner' ),
+				'description' => __( 'Hapus teks “Proseslah pesanan Anda dari mana saja. Dapatkan aplikasinya.” dari email notifikasi pesanan baru (admin).', 'wc-imajiner' ),
 			),
 		);
 	}
