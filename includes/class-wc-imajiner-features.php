@@ -92,6 +92,8 @@ class WC_Imajiner_Features {
 		add_action( 'template_redirect', array( $this, 'redirect_guests_from_checkout' ) );
 		add_filter( 'woocommerce_login_redirect', array( $this, 'filter_auth_redirect_back' ), 100 );
 		add_filter( 'woocommerce_registration_redirect', array( $this, 'filter_auth_redirect_back' ), 100 );
+		add_action( 'woocommerce_login_form_end', array( $this, 'render_auth_back_to_field' ) );
+		add_action( 'woocommerce_register_form_end', array( $this, 'render_auth_back_to_field' ) );
 
 		// Bank transfer only.
 		add_filter( 'woocommerce_available_payment_gateways', array( $this, 'filter_available_gateways' ), 100 );
@@ -1119,10 +1121,37 @@ class WC_Imajiner_Features {
 	}
 
 	/**
-	 * After login/registration on My Account, return the customer to checkout.
+	 * Resolve the post-auth return URL sent via wci_back_to.
 	 *
-	 * The my-account auth forms post to the current URL, so the wci_back_to
-	 * query arg survives the POST and is readable via $_GET here.
+	 * The param is read from the request first; when the form POSTed to a
+	 * cleaned URL it is extracted from the referer WC resolved instead.
+	 *
+	 * @param string $redirect Redirect URL WC already resolved (often the referer).
+	 * @return string Sanitized URL or empty string.
+	 */
+	protected function get_auth_back_to( $redirect = '' ) {
+		$back = '';
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['wci_back_to'] ) ) {
+			$back = rawurldecode( wp_unslash( $_GET['wci_back_to'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		}
+
+		if ( '' === $back && '' !== $redirect ) {
+			$query = wp_parse_url( $redirect, PHP_URL_QUERY );
+			if ( $query ) {
+				parse_str( $query, $params );
+				if ( ! empty( $params['wci_back_to'] ) ) {
+					$back = rawurldecode( $params['wci_back_to'] );
+				}
+			}
+		}
+
+		return esc_url_raw( $back );
+	}
+
+	/**
+	 * After login/registration on My Account, return the customer to checkout.
 	 *
 	 * @param string $redirect Default redirect.
 	 * @return string
@@ -1132,14 +1161,31 @@ class WC_Imajiner_Features {
 			return $redirect;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$back = isset( $_GET['wci_back_to'] ) ? esc_url_raw( rawurldecode( wp_unslash( $_GET['wci_back_to'] ) ) ) : '';
+		$back = $this->get_auth_back_to( (string) $redirect );
 
 		if ( '' === $back ) {
 			return $redirect;
 		}
 
 		return wp_validate_redirect( $back, $redirect );
+	}
+
+	/**
+	 * Carry the return URL inside WC auth form posts via its native
+	 * "redirect" field, which WooCommerce reads before the referer.
+	 */
+	public function render_auth_back_to_field() {
+		if ( ! WC_Imajiner_Settings::is_enabled( 'require_login_checkout' ) ) {
+			return;
+		}
+
+		$back = $this->get_auth_back_to();
+
+		if ( '' === $back ) {
+			return;
+		}
+
+		echo '<input type="hidden" name="redirect" value="' . esc_url( $back ) . '" />';
 	}
 
 	/**

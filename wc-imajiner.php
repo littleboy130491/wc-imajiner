@@ -3,7 +3,7 @@
  * Plugin Name: WC Imajiner
  * Plugin URI:  https://imajiner.id
  * Description: Extra Settings for WooCommerce.
- * Version:     1.2.1
+ * Version:     1.2.2
  * Author:      Imajiner
  * Text Domain: wc-imajiner
  * Domain Path: /languages
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WC_IMAJINER_VERSION', '1.2.1' );
+define( 'WC_IMAJINER_VERSION', '1.2.2' );
 define( 'WC_IMAJINER_FILE', __FILE__ );
 define( 'WC_IMAJINER_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WC_IMAJINER_URL', plugin_dir_url( __FILE__ ) );
