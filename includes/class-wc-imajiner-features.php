@@ -1107,9 +1107,10 @@ class WC_Imajiner_Features {
 			return;
 		}
 
+		// add_query_arg already encodes the value; do not pre-encode it.
 		$url = add_query_arg(
 			'wci_back_to',
-			rawurlencode( wc_get_checkout_url() ),
+			wc_get_checkout_url(),
 			wc_get_page_permalink( 'myaccount' )
 		);
 
@@ -1132,7 +1133,7 @@ class WC_Imajiner_Features {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$back = isset( $_GET['wci_back_to'] ) ? esc_url_raw( wp_unslash( $_GET['wci_back_to'] ) ) : '';
+		$back = isset( $_GET['wci_back_to'] ) ? esc_url_raw( rawurldecode( wp_unslash( $_GET['wci_back_to'] ) ) ) : '';
 
 		if ( '' === $back ) {
 			return $redirect;
