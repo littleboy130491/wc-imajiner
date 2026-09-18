@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 1.2.2 - 2026-09-18 =
+* Return to checkout after auth now uses WooCommerce's native hidden "redirect" field on the My Account login/register forms, with a referer fallback — covers themes whose forms post to a cleaned URL.
+
 = 1.2.1 - 2026-09-18 =
 * Fix return-to-checkout after login/registration: the wci_back_to URL was double-encoded, so auth redirects fell back to My Account.
 
