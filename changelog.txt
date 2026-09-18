@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 1.2.0 - 2026-09-18 =
+* Redirect guests from checkout to My Account login/register, then back to checkout after authentication.
+
 = 1.1.0 - 2026-08-14 =
 * Add a default AlgolPlus bulk table footer when the rule message is empty.
 * Attach invoice PDFs to customer emails and show a download on My Account orders.

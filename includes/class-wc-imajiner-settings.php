@@ -134,7 +134,7 @@ class WC_Imajiner_Settings {
 			),
 			'require_login_checkout'      => array(
 				'label'       => __( 'Wajib login sebelum checkout', 'wc-imajiner' ),
-				'description' => __( 'Tamu tidak bisa checkout. Pembeli harus masuk atau membuat akun terlebih dahulu.', 'wc-imajiner' ),
+				'description' => __( 'Tamu dialihkan dari checkout ke halaman login/daftar My Account, lalu otomatis kembali ke checkout setelah masuk.', 'wc-imajiner' ),
 			),
 			'default_bacs_payment'        => array(
 				'label'       => __( 'Hanya Transfer Bank (BACS)', 'wc-imajiner' ),
