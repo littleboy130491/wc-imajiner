@@ -89,6 +89,9 @@ class WC_Imajiner_Features {
 		add_filter( 'pre_option_woocommerce_enable_signup_and_login_from_checkout', array( $this, 'filter_checkout_signup_option' ) );
 		add_filter( 'pre_option_woocommerce_enable_myaccount_registration', array( $this, 'filter_checkout_signup_option' ) );
 		add_filter( 'woocommerce_checkout_registration_required', array( $this, 'filter_checkout_registration_required' ) );
+		add_action( 'template_redirect', array( $this, 'redirect_guests_from_checkout' ) );
+		add_filter( 'woocommerce_login_redirect', array( $this, 'filter_auth_redirect_back' ), 100 );
+		add_filter( 'woocommerce_registration_redirect', array( $this, 'filter_auth_redirect_back' ), 100 );
 
 		// Bank transfer only.
 		add_filter( 'woocommerce_available_payment_gateways', array( $this, 'filter_available_gateways' ), 100 );
@@ -1086,6 +1089,56 @@ class WC_Imajiner_Features {
 		}
 
 		return $required;
+	}
+
+	/**
+	 * Send guests from checkout to My Account login/register, then back.
+	 */
+	public function redirect_guests_from_checkout() {
+		if ( ! WC_Imajiner_Settings::is_enabled( 'require_login_checkout' ) ) {
+			return;
+		}
+
+		if ( is_user_logged_in() || ! function_exists( 'is_checkout' ) || ! is_checkout() ) {
+			return;
+		}
+
+		if ( is_wc_endpoint_url( 'order-received' ) ) {
+			return;
+		}
+
+		$url = add_query_arg(
+			'wci_back_to',
+			rawurlencode( wc_get_checkout_url() ),
+			wc_get_page_permalink( 'myaccount' )
+		);
+
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * After login/registration on My Account, return the customer to checkout.
+	 *
+	 * The my-account auth forms post to the current URL, so the wci_back_to
+	 * query arg survives the POST and is readable via $_GET here.
+	 *
+	 * @param string $redirect Default redirect.
+	 * @return string
+	 */
+	public function filter_auth_redirect_back( $redirect ) {
+		if ( ! WC_Imajiner_Settings::is_enabled( 'require_login_checkout' ) ) {
+			return $redirect;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$back = isset( $_GET['wci_back_to'] ) ? esc_url_raw( wp_unslash( $_GET['wci_back_to'] ) ) : '';
+
+		if ( '' === $back ) {
+			return $redirect;
+		}
+
+		return wp_validate_redirect( $back, $redirect );
 	}
 
 	/**
